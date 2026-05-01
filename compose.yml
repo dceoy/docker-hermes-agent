@@ -1,0 +1,41 @@
+x-hermes-environment: &hermes-environment
+  HOME: /home/${HERMES_USER_NAME:-agent}
+  TERM: xterm-256color
+  HERMES_HOME: /home/${HERMES_USER_NAME:-agent}/.hermes
+  OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+  ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+  OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+
+x-hermes-volumes: &hermes-volumes
+  - ${HERMES_CONFIG_DIR:-./.hermes}:/home/${HERMES_USER_NAME:-agent}/.hermes
+  - ${HERMES_WORKSPACE_DIR:-./workspace}:/home/${HERMES_USER_NAME:-agent}/.hermes/workspace
+
+services:
+  hermes-gateway:
+    container_name: hermes-gateway
+    image: ${HERMES_IMAGE:-hermes-agent:local}
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        USER_NAME: ${HERMES_USER_NAME:-agent}
+        USER_UID: ${HERMES_USER_UID:-1001}
+        USER_GID: ${HERMES_USER_GID:-1001}
+    environment: *hermes-environment
+    volumes: *hermes-volumes
+    ports:
+      - ${HERMES_DASHBOARD_PORT:-9119}:9119
+    restart: unless-stopped
+    command: ["gateway", "run"]
+
+  hermes-dashboard:
+    container_name: hermes-dashboard
+    image: ${HERMES_IMAGE:-hermes-agent:local}
+    environment: *hermes-environment
+    volumes: *hermes-volumes
+    ports:
+      - ${HERMES_DASHBOARD_PORT:-9119}:9119
+    restart: unless-stopped
+    depends_on:
+      - hermes-gateway
+    command: ["dashboard", "--host", "0.0.0.0", "--no-open"]
