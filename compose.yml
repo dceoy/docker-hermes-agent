@@ -1,0 +1,103 @@
+---
+x-hermes-environment: &hermes-environment
+  HOME: /opt/data
+  TERM: xterm-256color
+  # OpenAI-compatible API server. Set both to expose beyond localhost.
+  API_SERVER_HOST: ${API_SERVER_HOST:-}
+  API_SERVER_KEY: ${API_SERVER_KEY:-}
+  # Model and voice provider keys.
+  OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+  ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+  GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+  OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+  ELEVENLABS_API_KEY: ${ELEVENLABS_API_KEY:-}
+  HUGGINGFACE_API_KEY: ${HUGGINGFACE_API_KEY:-}
+  # Messaging gateways.
+  TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+  DISCORD_BOT_TOKEN: ${DISCORD_BOT_TOKEN:-}
+  SLACK_BOT_TOKEN: ${SLACK_BOT_TOKEN:-}
+  SLACK_APP_TOKEN: ${SLACK_APP_TOKEN:-}
+  # Microsoft Teams gateway. Register at https://dev.botframework.com/.
+  TEAMS_CLIENT_ID: ${TEAMS_CLIENT_ID:-}
+  TEAMS_CLIENT_SECRET: ${TEAMS_CLIENT_SECRET:-}
+  TEAMS_TENANT_ID: ${TEAMS_TENANT_ID:-}
+  TEAMS_ALLOWED_USERS: ${TEAMS_ALLOWED_USERS:-}
+  TEAMS_PORT: ${TEAMS_PORT:-3978}
+
+x-hermes-build: &hermes-build
+  context: .
+  dockerfile: Dockerfile
+  platforms:
+    - linux/amd64
+    - linux/arm64
+  tags:
+    - ${HERMES_IMAGE:-dceoy/hermes-agent:local}
+  args:
+    HERMES_FLAKE_REF: ${HERMES_FLAKE_REF:-github:NousResearch/hermes-agent}
+    NIX_VERSION: ${NIX_VERSION:-2.30.3}
+    HERMES_DEBIAN_RELEASE: ${HERMES_DEBIAN_RELEASE:-trixie}
+    USER_NAME: ${HERMES_USER_NAME:-hermes}
+    USER_UID: ${HERMES_USER_UID:-10000}
+    USER_GID: ${HERMES_USER_GID:-10000}
+
+x-hermes-volumes: &hermes-volumes
+  - ${HERMES_DATA_DIR:-./.hermes}:/opt/data
+
+services:
+  hermes-gateway:
+    container_name: hermes-gateway
+    hostname: hermes-gateway
+    image: ${HERMES_IMAGE:-dceoy/hermes-agent:local}
+    build: *hermes-build
+    environment: *hermes-environment
+    volumes: *hermes-volumes
+    ports:
+      - ${HERMES_API_PORT:-9118}:9118
+      - ${HERMES_TEAMS_PORT:-3978}:3978
+    restart: unless-stopped
+    command:
+      - gateway
+      - run
+    healthcheck:
+      test:
+        - CMD
+        - hermes
+        - --version
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  hermes-dashboard:
+    container_name: hermes-dashboard
+    hostname: hermes-dashboard
+    image: ${HERMES_IMAGE:-dceoy/hermes-agent:local}
+    environment: *hermes-environment
+    volumes: *hermes-volumes
+    # Localhost-only by default. Stores API keys; do not expose without auth.
+    # For remote access, tunnel via `ssh -L 9119:localhost:9119`.
+    ports:
+      - ${HERMES_DASHBOARD_BIND:-127.0.0.1}:${HERMES_DASHBOARD_PORT:-9119}:9119
+    restart: unless-stopped
+    depends_on:
+      - hermes-gateway
+    command:
+      - dashboard
+      - --host
+      - 127.0.0.1
+      - --no-open
+
+  hermes-cli:
+    container_name: hermes-cli
+    image: ${HERMES_IMAGE:-dceoy/hermes-agent:local}
+    environment: *hermes-environment
+    volumes: *hermes-volumes
+    cap_drop:
+      - NET_RAW
+      - NET_ADMIN
+    security_opt:
+      - no-new-privileges:true
+    stdin_open: true
+    tty: true
+    depends_on:
+      - hermes-gateway
