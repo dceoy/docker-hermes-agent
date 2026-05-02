@@ -1,9 +1,8 @@
 ---
 x-hermes-environment: &hermes-environment
-  HERMES_UID: ${HERMES_USER_UID:-10000}
-  HERMES_GID: ${HERMES_USER_GID:-10000}
+  HOME: /opt/data
   TERM: xterm-256color
-  # OpenAI-compatible API server. Set both to expose the API beyond localhost.
+  # OpenAI-compatible API server. Set both to expose beyond localhost.
   API_SERVER_HOST: ${API_SERVER_HOST:-}
   API_SERVER_KEY: ${API_SERVER_KEY:-}
   # Model and voice provider keys.
@@ -34,10 +33,8 @@ x-hermes-build: &hermes-build
   tags:
     - ${HERMES_IMAGE:-dceoy/hermes-agent:local}
   args:
-    HERMES_GIT_URL: ${HERMES_GIT_URL:-https://github.com/NousResearch/hermes-agent.git}
-    HERMES_GIT_REF: ${HERMES_GIT_REF:-main}
-    HERMES_EXTRAS: ${HERMES_EXTRAS:-all}
-    HERMES_PYTHON_VERSION: ${HERMES_PYTHON_VERSION:-3.13}
+    HERMES_FLAKE_REF: ${HERMES_FLAKE_REF:-github:NousResearch/hermes-agent}
+    NIX_VERSION: ${NIX_VERSION:-2.30.3}
     HERMES_DEBIAN_RELEASE: ${HERMES_DEBIAN_RELEASE:-trixie}
     USER_NAME: ${HERMES_USER_NAME:-hermes}
     USER_UID: ${HERMES_USER_UID:-10000}
